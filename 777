@@ -1,0 +1,230 @@
+#!/bin/bash
+
+# --------------------------------------------------------------------------- #
+#                                                                             #
+#    This program is free software: you can redistribute it and/or modify     #
+#    it under the terms of the GNU General Public License as published by     #
+#    the Free Software Foundation, either version 3 of the License, or        #
+#    (at your option) any later version.                                      #
+#                                                                             #
+#    This program is distributed in the hope that it will be useful,          #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of           #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            #
+#    GNU General Public License for more details.                             #
+#                                                                             #
+#    You should have received a copy of the GNU General Public License        #
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.   #
+#                                                                             #
+#                                                                             #
+# --------------------------------------------------------------------------- #
+
+## Set Timezone to Asia/Manila
+ln -fs /usr/share/zoneinfo/Asia/Manila /etc/localtime
+
+## Disable SeLinux
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/default/stunnel4
+
+## Install Resiquites
+yum install wget curl nano -y
+
+## Download Repositories
+mkdir ~/repo/
+cd ~/repo/
+wget http://repo.iotti.biz/CentOS/7/noarch/lux-release-7-1.noarch.rpm
+wget https://rpms.remirepo.net/enterprise/remi-release-7.rpm
+
+## Install Release
+rpm -ivh ~/repo/lux-release-7-1.noarch.rpm
+rpm -ivh ~/repo/remi-release-7.rpm
+yum install epel-release -y
+
+## Update and Upgrade System
+yum update -y
+yum upgrade -y
+
+## Initialize Variable
+OS=`uname -p`;
+MYIP=`curl -s ifconfig.me`;
+MYIP2="s/xxxxxxxxx/$MYIP/g";
+
+
+# disable se linux
+echo 0 > /selinux/enforce
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux
+
+# set locale
+sed -i 's/AcceptEnv/#AcceptEnv/g' /etc/ssh/sshd_config
+service sshd restart
+
+# disable ipv6
+echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+sed -i '$ i\echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6' /etc/rc.local
+sed -i '$ i\echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6' /etc/rc.d/rc.local
+
+#Add DNS Server ipv4
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
+echo "nameserver 1.0.0.1" >> /etc/resolv.conf
+sed -i '$ i\echo "nameserver 1.1.1.1" > /etc/resolv.conf' /etc/rc.local
+sed -i '$ i\echo "nameserver 1.0.0.1" >> /etc/resolv.conf' /etc/rc.local
+sed -i '$ i\echo "nameserver 1.1.1.1" > /etc/resolv.conf' /etc/rc.d/rc.local
+sed -i '$ i\echo "nameserver 1.0.0.1" >> /etc/resolv.conf' /etc/rc.d/rc.local
+
+## Remove Unused Packages
+yum remove sendmail httpd cyrus-sasl -y;
+yum autoremove -y
+
+## Install Authentication Packages
+yum install pam_mysql libnss-mysql -y
+
+## Install Server Packages
+yum install dropbear squid -y
+
+## Setup DropBear
+wget -O /etc/sysconfig/dropbear "https://raw.githubusercontent.com/0DinZ/CentOS-7-AutoScript/master/conf/dropbear.conf"
+
+## Setup Squid Proxy
+wget -O /etc/squid/squid.conf "https://raw.githubusercontent.com/0DinZ/CentOS-7-AutoScript/master/conf/squid-centos.conf"
+sed -i $MYIP2 /etc/squid/squid.conf
+
+
+# install openvpn
+yum -y install openvpn
+wget -O /tmp/easyrsa https://github.com/OpenVPN/easy-rsa-old/archive/2.3.3.tar.gz
+tar xfz /tmp/easyrsa
+mkdir /etc/openvpn/easy-rsa
+cp -rf easy-rsa-old-2.3.3/easy-rsa/2.0/* /etc/openvpn/easy-rsa
+mkdir /etc/openvpn/easy-rsa/keys
+sed -i 's/export PKCS11/#export PKCS11/g' /etc/openvpn/easy-rsa/vars
+sed -i 's/export KEY_CN/#export KEY_CN/g' /etc/openvpn/easy-rsa/vars
+sed -i 's/export KEY_EMAIL=mail@host.domain/#export KEY_EMAIL=mail@host.domain/g' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_COUNTRY="PH"|export KEY_COUNTRY="PH"|' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_PROVINCE="NE"|export KEY_PROVINCE="Manila"|' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_CITY="Cabanatuan"|export KEY_CITY="Sampaloc"|' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_ORG="Fort-Funston"|export KEY_ORG="jeypi"|' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_EMAIL="me@myhost.mydomain"|export KEY_EMAIL="jeypi@gmail.com"|' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_NAME=changeme|export KEY_NAME="server"|' /etc/openvpn/easy-rsa/vars
+sed -i 's|export KEY_OU=changeme|export KEY_OU="JPvpn"|' /etc/openvpn/easy-rsa/vars
+#Create Diffie-Helman Pem
+openssl dhparam -out /etc/openvpn/dh2048.pem 2048
+# Create PKI
+cd /etc/openvpn/easy-rsa
+cp openssl-1.0.0.cnf openssl.cnf
+. ./vars
+./clean-all
+export EASY_RSA="${EASY_RSA:-.}"
+"$EASY_RSA/pkitool" --initca $*
+# create key server
+export EASY_RSA="${EASY_RSA:-.}"
+"$EASY_RSA/pkitool" --server server
+# setting KEY CN
+export EASY_RSA="${EASY_RSA:-.}"
+"$EASY_RSA/pkitool" client
+cd
+cd /etc/openvpn/easy-rsa/keys
+cp ca.crt server.crt server.key /etc/openvpn
+cd
+# setting server
+cat > /etc/openvpn/server.conf <<-END
+port 465
+proto tcp
+dev tun
+ca ca.crt
+cert server.crt
+key server.key 
+dh dh2048.pem
+client-cert-not-required
+username-as-common-name
+plugin /usr/lib64/openvpn/plugins/openvpn-plugin-auth-pam.so login
+server 192.168.100.0 255.255.255.0
+ifconfig-pool-persist ipp.txt
+push "redirect-gateway def1 bypass-dhcp"
+push "dhcp-option DNS 1.1.1.1"
+push "dhcp-option DNS 1.0.0.1"
+push "route-method exe"
+push "route-delay 2"
+duplicate-cn
+push "route-method exe"
+push "route-delay 2"
+keepalive 10 120
+persist-key
+persist-tun
+status openvpn-status.log
+log openvpn.log
+comp-lzo no
+push "comp-lzo no"
+cipher none
+auth none
+verb 3
+END
+
+cd
+
+# create openvpn config
+cat > openvpn.ovpn <<-END
+#modified by Jeypi04
+client
+dev tun
+proto tcp
+remote xxxxxxxxx 465
+persist-key
+persist-tun
+dev tun
+pull
+resolv-retry infinite
+nobind
+ns-cert-type server
+verb 3
+mute 2
+mute-replay-warnings
+auth-user-pass
+setenv opt block-outside-dns
+redirect-gateway def1
+script-security 2
+route 0.0.0.0 0.0.0.0
+route-method exe
+route-delay 2
+cipher none
+setenv CLIENT_CERT 0
+dhcp-option DOMAIN 1dot1dot1dot1.cloudflare-dns.com
+
+END
+echo '<ca>' >> openvpn.ovpn
+cat /etc/openvpn/ca.crt >> openvpn.ovpn
+echo '</ca>' >> openvpn.ovpn
+sed -i $MYIP2 openvpn.ovpn;
+
+#setup firewall
+firewall-cmd --get-active-zones
+firewall-cmd --zone=trusted --add-service openvpn
+firewall-cmd --zone=trusted --add-service openvpn --permanent
+firewall-cmd --list-services --zone=trusted
+firewall-cmd --add-masquerade
+firewall-cmd --permanent --add-masquerade
+firewall-cmd --query-masquerade
+SHARK=$(ip route get 1.1.1.1 | awk 'NR==1 {print $(NF-2)}')
+firewall-cmd --permanent --direct --passthrough ipv4 -t nat -A POSTROUTING -s 192.168.100.0/24 -o $SHARK -j MASQUERADE
+firewall-cmd --zone=public --add-port=1194/tcp --permanent
+firewall-cmd --reload
+#forward ipv4
+sysctl -w net.ipv4.ip_forward=1
+touch /usr/lib/sysctl.d/sysctl.conf
+cat > /usr/lib/sysctl.d/sysctl.conf <<-END
+net.ipv4.ip_forward = 1
+END
+systemctl restart network.service
+systemctl -f enable openvpn@server.service
+systemctl start openvpn@server.service
+systemctl status openvpn@server.service
+chkconfig openvpn on
+
+
+# download script
+cd
+wget https://raw.githubusercontent.com/shigeno143/OCSPanelCentos6/master/install-premiumscript.sh -O - -o /dev/null|sh
+
+## Restart and Enable Services
+systemctl restart squid
+systemctl restart dropbear
+systemctl restart sshd
+systemctl enable squid
+systemctl enable dropbear
