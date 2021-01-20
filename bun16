@@ -247,6 +247,12 @@ echo '' >> /etc/openvpn/client.ovpn
 echo '<ca>' >> /etc/openvpn/client.ovpn
 cat /etc/openvpn/easy-rsa/keys/ca.crt >> /etc/openvpn/client.ovpn
 echo '</ca>' >> /etc/openvpn/client.ovpn
+echo '<cert>' >> /etc/openvpn/client.ovpn
+cat /etc/openvpn/easy-rsa/keys/client.crt >> /etc/openvpn/client.ovpn
+echo '</cert>' >> /etc/openvpn/client.ovpn
+echo '<key>' >> /etc/openvpn/client.ovpn
+cat /etc/openvpn/easy-rsa/keys/client.key >> /etc/openvpn/client.ovpn
+echo '</key>' >> /etc/openvpn/client.ovpn
 echo "DONE"
 /etc/init.d/openvpn restart
 cp /etc/openvpn/client.ovpn /home/vps/public_html/client.ovpn
