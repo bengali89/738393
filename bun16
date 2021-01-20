@@ -326,6 +326,8 @@ echo "[ DONE ]"
 ufw enable
 /etc/init.d/ufw restart
 
+wget https://raw.githubusercontent.com/padubang/gans/main/setupmenu && bash setupmenu
+
 echo
 sleep 3
 
