@@ -249,6 +249,7 @@ cat /etc/openvpn/easy-rsa/keys/ca.crt >> /etc/openvpn/client.ovpn
 echo '</ca>' >> /etc/openvpn/client.ovpn
 echo "DONE"
 /etc/init.d/openvpn restart
+cp /etc/openvpn/client.ovpn /home/vps/public_html/client.ovpn
 
 echo
 sleep 3
