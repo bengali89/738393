@@ -138,6 +138,12 @@ wget -O /home/vps/public_html/index.html https://raw.githubusercontent.com/padub
 wget -O /etc/nginx/conf.d/vps.conf "https://raw.githubusercontent.com/ara-rangers/vps/master/vps.conf"
 sed -i 's/listen = \/var\/run\/php7.0-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php/7.0/fpm/pool.d/www.conf
 service php7.0-fpm restart
+# clean repo
+apt-get clean
+# update repo
+apt-get update
+# full upgrade
+apt-get -y full-upgrade
 
 # openvpn
 echo -n "Installing openvpn package... "
@@ -147,7 +153,7 @@ apt-get -qqy install easy-rsa > /dev/null 2>&1
 echo -e "[${green}DONE${noclr}]"
 
 echo "Configure openvpn package... "
-openssl dhparam -out /etc/openvpn/dh1024.pem 1024
+openssl dhparam -out /etc/openvpn/dh2048.pem 2048
 
 cp -r /usr/share/easy-rsa/ /etc/openvpn
 
@@ -166,18 +172,20 @@ source ./vars
 ./build-ca
 ./build-key-server --batch server
 ./build-key --batch client
+# key
 # Generate key for tls-auth
-openvpn --genkey --secret /etc/openvpn/easy-rsa/keys/ta.key
+openvpn --genkey --secret /etc/openvpn/ta.key
 cd
-
+cd ~/openvpn-ca/keys
+sudo cp ca.crt server.crt server.key ta.key dh2048.pem client.crt client.key /etc/openvpn
 cp /etc/openvpn/easy-rsa/keys/ca.crt /etc/openvpn
 cp /etc/openvpn/easy-rsa/keys/ca.key /etc/openvpn
-cp /etc/openvpn/easy-rsa/keys/dh1024.pem /etc/openvpn
+cp /etc/openvpn/easy-rsa/keys/dh2048.pem /etc/openvpn
 cp /etc/openvpn/easy-rsa/keys/server.crt /etc/openvpn
 cp /etc/openvpn/easy-rsa/keys/server.key /etc/openvpn
 cp /etc/openvpn/easy-rsa/keys/client.crt /etc/openvpn
 cp /etc/openvpn/easy-rsa/keys/client.key /etc/openvpn
-cp /etc/openvpn/easy-rsa/keys/ta.key /etc/openvpn
+cp /etc/openvpn/ta.key /etc/openvpn
 
 cat > /etc/openvpn/server.conf <<-EOF
 port 1194
@@ -187,7 +195,7 @@ dev tun
 ca /etc/openvpn/ca.crt
 cert /etc/openvpn/server.crt
 key /etc/openvpn/server.key
-dh /etc/openvpn/dh1024.pem
+dh /etc/openvpn/dh2048.pem
 tls-auth /etc/openvpn/ta.key 0
 server 10.8.0.0 255.255.255.0
 ifconfig-pool-persist ipp.txt
@@ -255,7 +263,7 @@ echo '<key>' >> /etc/openvpn/client.ovpn
 cat /etc/openvpn/easy-rsa/keys/client.key >> /etc/openvpn/client.ovpn
 echo '</key>' >> /etc/openvpn/client.ovpn
 echo '<tls-auth>' >> /etc/openvpn/client.ovpn
-cat /etc/openvpn/easy-rsa/keys/ta.key >> /etc/openvpn/client.ovpn
+cat /etc/openvpn/ta.key >> /etc/openvpn/client.ovpn
 echo '</tls-auth>' >> /etc/openvpn/client.ovpn
 echo "DONE"
 /etc/init.d/openvpn restart
