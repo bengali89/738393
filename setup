@@ -631,18 +631,37 @@ myPrivoxy
  
 # Squid Ports (must be 1024 or higher)
  Proxy_Port='8000'
+ Proxy_Port1='8080'
+ Proxy_Port2='3128'
+ Proxy_Port3='8888'
  cat <<mySquid > /etc/squid/squid.conf
 acl VPN dst $(wget -4qO- http://ipinfo.io/ip)/32
-http_access allow VPN
-http_access deny all 
+acl checker src 188.93.95.137
+acl ports_ port 14 22 53 21 8080 8081 8000 3128 1193 1194 440 441 442 443 80
 http_port 0.0.0.0:$Proxy_Port
+http_port 0.0.0.0:$Proxy_Port1
+http_port 0.0.0.0:$Proxy_Port2
+http_port 0.0.0.0:$Proxy_Port3
+access_log none
+cache_log /dev/null
+logfile_rotate 0
+http_access allow VPN
+http_access allow server
+http_access allow checker
+http_access deny all
+forwarded_for off
+via off
+request_header_access Host allow all
+request_header_access Content-Length allow all
+request_header_access Content-Type allow all
+request_header_access All deny all
+hierarchy_stoplist cgi-bin ?
 coredump_dir /var/spool/squid
-dns_nameservers 1.1.1.1 1.0.0.1
 refresh_pattern ^ftp: 1440 20% 10080
 refresh_pattern ^gopher: 1440 0% 1440
 refresh_pattern -i (/cgi-bin/|\?) 0 0% 0
 refresh_pattern . 0 20% 4320
-visible_hostname localhost
+visible_hostname dopekid.tk
 mySquid
 
  sed -i "s|SquidCacheHelper|$Privoxy_Port1|g" /etc/squid/squid.conf
