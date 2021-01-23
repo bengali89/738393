@@ -276,7 +276,6 @@ ifconfig-pool-persist ipp.txt
 push "dhcp-option DNS 1.0.0.1"
 push "dhcp-option DNS 1.1.1.1"
 push "redirect-gateway def1 bypass-dhcp" 
-crl-verify crl.pem
 ca ca.crt
 cert server.crt
 key server.key
@@ -496,7 +495,7 @@ f8537b0df261389422c2cd94337355db
 0da74fe3e8ca16551dfe7c8e30e3a417
 -----END OpenVPN Static key V1-----
 EOF18
- cat <<'EOF13'> /etc/openvpn/dh4096.pem
+ cat <<'EOF13'> /etc/openvpn/dh.pem
 -----BEGIN DH PARAMETERS-----
 MIICCAKCAgEA4n16aZpGsqucktU0QAkocQGie3E0rjbaanO+8HWea4Uf6XvKokA+
 iXZl/pPHg/ItVjkFZViWMzZ9Xa0/Y2JKVuYCnguC8xSdN+xlo2gQ+PwK1ExrB0lR
